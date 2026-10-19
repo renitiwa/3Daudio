@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONIC SPHERE 3D - 空間音響プレイグラウンド</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Hiragino Sans', 'Meiryo', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#131c2e',
+                            900: '#0b1120',
+                            950: '#060913',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* カスタムスクロールバーとレンジスライダーのスタイリング */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #1e293b;
+            height: 6px;
+            border-radius: 9999px;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -5px;
+            background-color: #38bdf8;
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]:hover::-webkit-slider-thumb {
+            transform: scale(1.15);
+            background-color: #7dd3fc;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
+
+        .stage-container {
+            background: radial-gradient(circle at center, #0f172a 0%, #060913 75%);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-sky-500 selection:text-white overflow-x-hidden">
+
+    <!-- トースト通知エリア -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- トップナビゲーション＆マスターコントロールヘッダー -->
+    <header class="glass-panel sticky top-0 z-30 border-b border-slate-800/80 px-4 py-2.5 shadow-lg">
+        <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- ロゴ＆タイトル -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-sky-400/30">
+                    <i class="fa-solid fa-headphones-simple text-lg text-white"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-base md:text-lg tracking-tight bg-gradient-to-r from-white via-sky-200 to-indigo-300 bg-clip-text text-transparent">
+                            SONIC SPHERE 3D
+                        </h1>
+                        <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30 font-semibold">
+                            HRTF Spatial Audio
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">
+                        円の周りにMP3やサンプル音源を配置して立体音響を体験（ヘッドホン・イヤホン推奨）
+                    </p>
+                </div>
+            </div>
+
+            <!-- マスタープレイバック＆アクションバー -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                <!-- デモ空間一括セットアップ -->
+                <button id="btnDemoSetup" class="px-3 py-1.5 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 text-xs font-medium flex items-center gap-1.5 transition shadow-sm" title="サンプル音源を周囲に配置して即座に3D音響を体験します">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>デモ空間を配置</span>
+                </button>
+
+                <!-- 全音源再生 / 一時停止 -->
+                <div class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                    <button id="btnPlayAll" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-play"></i>
+                        <span>一括再生</span>
+                    </button>
+                    <button id="btnPauseAll" class="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition ml-1">
+                        <i class="fa-solid fa-pause"></i>
+                        <span>一時停止</span>
+                    </button>
+                </div>
+
+                <!-- 全体オービット（自動周回）トグル -->
+                <button id="btnGlobalOrbit" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-xs font-medium flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-satellite text-sky-400"></i>
+                    <span>全自動周回: <strong id="globalOrbitStateText" class="text-slate-400">個別</strong></span>
+                </button>
+
+                <!-- マスターボリューム -->
+                <div class="flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <i id="masterVolIcon" class="fa-solid fa-volume-high text-sky-400 text-xs w-4 text-center cursor-pointer" title="クリックでマスターミュート切替"></i>
+                    <input id="masterVolumeSlider" type="range" min="0" max="1.5" step="0.01" value="1.0" class="w-20 sm:w-24">
+                    <span id="masterVolumeValue" class="text-xs font-mono text-slate-300 w-9 text-right">100%</span>
+                </div>
+
+                <!-- 全クリア -->
+                <button id="btnClearAll" class="p-2 rounded-xl bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-800/60 text-xs transition" title="すべての音源を削除">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ（3カラム・レスポンシブグリッド） -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+
+        <!-- 左カラム：音源追加（MP3ドロップ＆内蔵サンプル）＆ トラック一覧 (lg:col-span-3) -->
+        <section class="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+            <!-- MP3ファイル追加ボックス -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-2.5">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-audio"></i>
+                        <span>MP3 / 音声ファイル追加</span>
+                    </h2>
+                    <span class="text-[11px] text-slate-400">複数選択可</span>
+                </div>
+
+                <!-- ドラッグ＆ドロップまたはファイル選択 -->
+                <label for="fileInput" id="sidebarDropZone" class="group cursor-pointer border-2 border-dashed border-slate-700 hover:border-sky-400/80 bg-slate-900/60 hover:bg-sky-950/20 rounded-xl p-4 flex flex-col items-center justify-center text-center transition">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-sky-500/20 text-sky-400 flex items-center justify-center mb-2 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">
+                        クリックしてMP3を選択
+                    </p>
+                    <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        または<strong class="text-sky-300">中央の円形キャンバス上の好きな場所</strong>へ直接MP3ファイルをドロップ！
+                    </p>
+                    <input id="fileInput" type="file" accept="audio/*" multiple class="hidden">
+                </label>
+            </div>
+
+            <!-- 内蔵シンセ・サンプル音源パレット -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wave-square"></i>
+                        <span>内蔵サンプル音源を追加</span>
+                    </h2>
+                    <span class="text-[10px] text-slate-400 font-mono">MP3不要で即体験</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-3">
+                    ボタンを押すとWeb Audio合成による高音質ループ音源を円周上に生成・配置します。
+                </p>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-preset="arp" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-sky-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-music"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">シンセアルペジオ</div>
+                            <div class="text-[10px] text-slate-400">幻想的コード</div>
+                        </div>
+                    </button>
+
+                    <button data-preset="lofi" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-amber-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-drum"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">ローファイビート</div>
+                            <div class="text-[10px] text-slate-400">ドラム＆リズム</div>
+                        </div>
+                    </button>
+
+                    <button data-preset="chime" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-emerald-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-bell"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">クリスタルベル</div>
+                            <div class="text-[10px] text-slate-400">定位くっきり高音</div>
+                        </div>
+                    </button>
+
+                    <button data-preset="rain" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-cyan-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-cloud-rain"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">雨音・環境ノイズ</div>
+                            <div class="text-[10px] text-slate-400">アンビエント</div>
+                        </div>
+                    </button>
+
+                    <button data-preset="bass" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-fuchsia-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-bolt"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">ベースパルス</div>
+                            <div class="text-[10px] text-slate-400">重低音グルーヴ</div>
+                        </div>
+                    </button>
+
+                    <button data-preset="birds" class="preset-btn px-2.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/70 hover:border-lime-500/50 flex items-center gap-2 text-left transition group">
+                        <span class="w-7 h-7 rounded-lg bg-lime-500/20 text-lime-400 flex items-center justify-center text-xs shrink-0 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-dove"></i>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-semibold text-slate-200 truncate">森のさえずり</div>
+                            <div class="text-[10px] text-slate-400">自然サウンド</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 配置済み音源トラック一覧 -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl flex-1 flex flex-col min-h-[240px] max-h-[420px]">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-sky-400"></i>
+                        <span>配置中の音源一覧</span>
+                    </h2>
+                    <span id="sourceCountBadge" class="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">
+                        0 音源
+                    </span>
+                </div>
+
+                <div id="trackListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                    <!-- JSで動的に描画 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 中央カラム：円形空間ステージ（メインキャンバス） (lg:col-span-6) -->
+        <section class="lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2">
+            <div class="glass-panel rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col items-center relative overflow-hidden">
+                
+                <!-- キャンバス上部ステータス＆ガイドバー -->
+                <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-2 px-1 z-10">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-700 text-slate-300">
+                            <span id="audioStateDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span id="stageModeLabel">HRTF 3D空間ステージ (半径 10m)</span>
+                        </span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 flex items-center gap-3">
+                        <span><i class="fa-solid fa-arrows-up-down-left-right text-sky-400 mr-1"></i>ドラッグで移動</span>
+                        <span class="hidden sm:inline"><i class="fa-solid fa-file-import text-indigo-400 mr-1"></i>MP3直接ドロップ対応</span>
+                    </div>
+                </div>
+
+                <!-- 円形空間メインCanvasラッパー -->
+                <div id="canvasWrapper" class="w-full aspect-square max-w-[640px] relative rounded-2xl overflow-hidden stage-container border border-slate-800/90 shadow-inner select-none">
+                    <canvas id="spatialCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing touch-none"></canvas>
+
+                    <!-- ファイルドラッグオーバー時のハイライトメッセージ -->
+                    <div id="canvasDropOverlay" class="pointer-events-none absolute inset-0 bg-sky-500/10 border-2 border-dashed border-sky-400 rounded-2xl opacity-0 transition-opacity duration-200 flex flex-col items-center justify-between p-6">
+                        <div class="px-4 py-2 rounded-full bg-slate-950/90 border border-sky-400/50 text-sky-300 text-xs font-semibold shadow-lg">
+                            <i class="fa-solid fa-bullseye mr-1.5"></i>ドロップした座標（方向・距離）から音が鳴り始めます
+                        </div>
+                        <div></div>
+                    </div>
+                </div>
+
+                <!-- キャンバス下部クイックコントロール（リスナー向き＆エフェクト切替） -->
+                <div class="w-full mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <!-- リスナーの顔の向き（Yaw） -->
+                    <div class="flex items-center gap-2 flex-1 min-w-[220px]">
+                        <span class="text-slate-400 whitespace-nowrap flex items-center gap-1">
+                            <i class="fa-solid fa-user-astronaut text-sky-400"></i>
+                            <span>リスナーの向き:</span>
+                        </span>
+                        <input id="listenerYawSlider" type="range" min="0" max="359" step="1" value="0" class="flex-1 max-w-[160px]">
+                        <span id="listenerYawValue" class="font-mono text-sky-300 w-10 text-right">0°</span>
+                        <button id="btnResetListener" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition" title="正面(0°)に向きをリセット">
+                            正面
+                        </button>
+                    </div>
+
+                    <!-- ビジュアルエフェクト表示トグル -->
+                    <div class="flex items-center gap-1.5">
+                        <button id="btnToggleRipples" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-medium transition">
+                            <i class="fa-solid fa-water mr-1"></i>波紋エフェクト
+                        </button>
+                        <button id="btnToggleSpectrum" class="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-medium transition">
+                            <i class="fa-solid fa-chart-pie mr-1"></i>スペクトラム
+                        </button>
+                        <button id="btnToggleTrails" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-medium transition">
+                            <i class="fa-solid fa-comet mr-1"></i>軌跡
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右カラム：選択音源インスペクター ＆ 空間環境設定 (lg:col-span-3) -->
+        <section class="lg:col-span-3 flex flex-col gap-4 order-3">
+            
+            <!-- 選択した音源の詳細コントロールパネル -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>選択音源のコントロール</span>
+                    </h2>
+                    <span id="selectedBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                        未選択
+                    </span>
+                </div>
+
+                <!-- 音源が未選択のときのプレースホルダー -->
+                <div id="inspectorEmptyState" class="py-10 text-center text-slate-400 text-xs">
+                    <i class="fa-solid fa-hand-pointer text-2xl text-slate-600 mb-2 block"></i>
+                    キャンバス上の音源ノードをクリックするか、<br>左のリストから音源を選択してください。
+                </div>
+
+                <!-- 音源選択時の詳細フォーム -->
+                <div id="inspectorContent" class="space-y-4 hidden">
+                    <!-- 音源タイトルと基本操作ボタン -->
+                    <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col gap-2.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span id="inspColorDot" class="w-3.5 h-3.5 rounded-full shrink-0 shadow"></span>
+                                <h3 id="inspSourceName" class="text-sm font-bold text-white truncate">Source Name</h3>
+                            </div>
+                            <button id="inspBtnDelete" class="text-xs px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 transition shrink-0" title="この音源を削除">
+                                <i class="fa-solid fa-trash-can mr-1"></i>削除
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-1.5 pt-1">
+                            <button id="inspBtnPlayPause" class="col-span-2 py-1.5 px-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                                <i class="fa-solid fa-play"></i>
+                                <span>再生中</span>
+                            </button>
+                            <button id="inspBtnMute" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono font-semibold transition">
+                                MUTE
+                            </button>
+                            <button id="inspBtnSolo" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono font-semibold transition">
+                                SOLO
+                            </button>
+                        </div>
+
+                        <!-- 個別ボリューム＆ループ -->
+                        <div class="flex items-center gap-2 pt-1">
+                            <i class="fa-solid fa-volume-low text-slate-400 text-xs"></i>
+                            <input id="inspGainSlider" type="range" min="0" max="2.0" step="0.01" value="1.0" class="flex-1">
+                            <span id="inspGainValue" class="text-xs font-mono text-slate-300 w-10 text-right">100%</span>
+                            <button id="inspBtnLoop" class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono transition" title="ループ再生 ON/OFF">
+                                <i class="fa-solid fa-repeat mr-0.5"></i>LOOP
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3D空間座標（角度・距離・高さ） -->
+                    <div class="space-y-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <div class="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                            <span><i class="fa-solid fa-compass text-sky-400 mr-1"></i>3Dポジション微調整</span>
+                            <div class="flex gap-1">
+                                <button data-dir="0" class="quick-angle-btn px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">前</button>
+                                <button data-dir="90" class="quick-angle-btn px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">右</button>
+                                <button data-dir="180" class="quick-angle-btn px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">後</button>
+                                <button data-dir="270" class="quick-angle-btn px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">左</button>
+                            </div>
+                        </div>
+
+                        <!-- 角度 (Azimuth) -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">水平角度 (Azimuth)</span>
+                                <span id="inspAngleVal" class="font-mono text-sky-300">0° (FRONT)</span>
+                            </div>
+                            <input id="inspAngleSlider" type="range" min="0" max="359" step="1" value="0" class="w-full">
+                        </div>
+
+                        <!-- 距離 (Distance) -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">リスナーからの距離</span>
+                                <span id="inspDistVal" class="font-mono text-sky-300">3.5 m</span>
+                            </div>
+                            <input id="inspDistSlider" type="range" min="0.2" max="10.0" step="0.1" value="3.5" class="w-full">
+                        </div>
+
+                        <!-- 高さ (Elevation Y軸) -->
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="text-slate-400">高さ (Elevation / Y軸)</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="inspElevVal" class="font-mono text-indigo-300">0.0 m</span>
+                                    <button id="inspBtnResetElev" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400">0m</button>
+                                </div>
+                            </div>
+                            <input id="inspElevSlider" type="range" min="-5.0" max="5.0" step="0.1" value="0.0" class="w-full">
+                        </div>
+                    </div>
+
+                    <!-- 自動周回（Orbit）設定 -->
+                    <div class="space-y-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                                <i class="fa-solid fa-rotate text-amber-400"></i>
+                                <span>自動周回 (Orbit)</span>
+                            </span>
+                            <button id="inspBtnOrbitToggle" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold transition">
+                                OFF
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button id="inspBtnOrbitCW" class="py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs flex items-center justify-center gap-1 transition">
+                                <i class="fa-solid fa-rotate-right"></i> 時計回り
+                            </button>
+                            <button id="inspBtnOrbitCCW" class="py-1 px-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs flex items-center justify-center gap-1 transition">
+                                <i class="fa-solid fa-rotate-left"></i> 反時計回り
+                            </button>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">回転スピード</span>
+                                <span id="inspOrbitSpeedVal" class="font-mono text-amber-300">25 deg/s</span>
+                            </div>
+                            <input id="inspOrbitSpeedSlider" type="range" min="2" max="120" step="1" value="25" class="w-full">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全体の空間音響パラメータ設定パネル -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl space-y-3.5">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>空間オーディオ環境設定</span>
+                </h2>
+
+                <!-- パニングモデル切替 (HRTF / equalpower) -->
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1.5">パニングモデル (立体音響アルゴリズム)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnModelHRTF" class="py-2 px-2.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/50 text-xs font-semibold flex flex-col items-center transition">
+                            <span>HRTF (推奨)</span>
+                            <span class="text-[10px] font-normal text-sky-200/70">3D頭部伝達関数</span>
+                        </button>
+                        <button id="btnModelEqual" class="py-2 px-2.5 rounded-xl bg-slate-900 text-slate-400 border border-slate-800 text-xs font-semibold flex flex-col items-center transition">
+                            <span>equalpower</span>
+                            <span class="text-[10px] font-normal text-slate-500">シンプルLR定位</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 距離減衰モデル -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">距離減衰モデル</span>
+                        <select id="distanceModelSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                            <option value="inverse" selected>Inverse (現実的・自然)</option>
+                            <option value="exponential">Exponential (急激に減衰)</option>
+                            <option value="linear">Linear (直線的に減衰)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 距離減衰の強さ (Rolloff Factor) -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">距離減衰の強さ (Rolloff)</span>
+                        <span id="rolloffValue" class="font-mono text-sky-300">1.5</span>
+                    </div>
+                    <input id="rolloffSlider" type="range" min="0.1" max="5.0" step="0.1" value="1.5" class="w-full">
+                </div>
+
+                <!-- 空間リバーブ（残響効果） -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">空間リバーブ (部屋の残響感)</span>
+                        <span id="reverbWetValue" class="font-mono text-indigo-300">18%</span>
+                    </div>
+                    <input id="reverbWetSlider" type="range" min="0" max="0.7" step="0.01" value="0.18" class="w-full">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        /**
+         * SONIC SPHERE 3D - Web Audio API 空間音響プレイグラウンド
+         * PannerNode (HRTF) + AnalyserNode + Procedural Sample Generator + 2D Radar Stage
+         */
+
+        // --- カラーパレット（音源ノードごとに美しいネオンカラーを割り当て） ---
+        const SOURCE_COLORS = [
+            { hex: '#38bdf8', rgb: '56, 189, 248', name: 'Sky' },
+            { hex: '#f59e0b', rgb: '245, 158, 11', name: 'Amber' },
+            { hex: '#10b981', rgb: '16, 185, 129', name: 'Emerald' },
+            { hex: '#e879f9', rgb: '232, 121, 249', name: 'Fuchsia' },
+            { hex: '#fb7185', rgb: '251, 113, 133', name: 'Rose' },
+            { hex: '#a3e635', rgb: '163, 230, 53', name: 'Lime' },
+            { hex: '#818cf8', rgb: '129, 140, 248', name: 'Indigo' },
+            { hex: '#2dd4bf', rgb: '45, 212, 191', name: 'Teal' }
+        ];
+
+        // --- アプリケーション全体の状態管理 ---
+        const appState = {
+            audioCtx: null,
+            masterGain: null,
+            convolverNode: null,
+            reverbWetGain: null,
+            isMasterMuted: false,
+            masterVolume: 1.0,
+            reverbWet: 0.18,
+
+            // 空間パラメータ
+            maxStageMeters: 10.0, // キャンバス半径 = 10m
+            panningModel: 'HRTF',
+            distanceModel: 'inverse',
+            rolloffFactor: 1.5,
+            listenerYaw: 0, // 0° = FRONT (北)
+
+            // 音源リストと選択状態
+            sources: [],
+            selectedSourceId: null,
+            colorIndex: 0,
+            globalOrbitForce: false,
+
+            // 視覚エフェクト設定
+            showRipples: true,
+            showSpectrum: true,
+            showTrails: true,
+
+            // インタラクション状態
+            draggingSourceId: null,
+            draggingListener: false,
+            hoverSourceId: null,
+            fileDropPreview: null, // { x, y, angle, distance }
+            lastFrameTime: performance.now()
+        };
+
+        // --- トースト通知ヘルパー (alert不使用) ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const iconMap = {
+                info: 'fa-circle-info text-sky-400',
+                success: 'fa-circle-check text-emerald-400',
+                warn: 'fa-triangle-exclamation text-amber-400'
+            };
+            toast.className = 'glass-panel px-4 py-2.5 rounded-xl border border-slate-700 shadow-xl flex items-center gap-2.5 text-xs text-slate-100 transform transition-all duration-300 translate-y-2 opacity-0';
+            toast.innerHTML = `
+                <i class="fa-solid ${iconMap[type] || iconMap.info} text-sm"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // --- AudioContext の初期化と空間リバーブの構築 ---
+        function ensureAudioContext() {
+            if (!appState.audioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                appState.audioCtx = ctx;
+
+                // マスターゲイン
+                const masterGain = ctx.createGain();
+                masterGain.gain.value = appState.masterVolume;
+                masterGain.connect(ctx.destination);
+                appState.masterGain = masterGain;
+
+                // 空間感を高めるステレオインパルス応答（ホール残響）の合成生成
+                const reverbNode = ctx.createConvolver();
+                reverbNode.buffer = createSyntheticImpulseBuffer(ctx, 2.2, 2.8);
+                const reverbWetGain = ctx.createGain();
+                reverbWetGain.gain.value = appState.reverbWet;
+
+                reverbNode.connect(reverbWetGain);
+                reverbWetGain.connect(masterGain);
+
+                appState.convolverNode = reverbNode;
+                appState.reverbWetGain = reverbWetGain;
+
+                // リスナー初期位置と向きを設定
+                updateListenerOrientation();
+            }
+
+            if (appState.audioCtx.state === 'suspended') {
+                appState.audioCtx.resume();
+            }
+            return appState.audioCtx;
+        }
+
+        // 合成リバーブ用インパルス応答バッファの生成
+        function createSyntheticImpulseBuffer(ctx, durationSec, decayRate) {
+            const sampleRate = ctx.sampleRate;
+            const length = Math.floor(sampleRate * durationSec);
+            const impulse = ctx.createBuffer(2, length, sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+                const data = impulse.getChannelData(ch);
+                for (let i = 0; i < length; i++) {
+                    const t = i / length;
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decayRate);
+                }
+            }
+            return impulse;
+        }
+
+        // --- リスナーの向き（Yaw角度）の更新 ---
+        function updateListenerOrientation() {
+            if (!appState.audioCtx) return;
+            const ctx = appState.audioCtx;
+            const listener = ctx.listener;
+            const rad = (appState.listenerYaw * Math.PI) / 180;
+
+            // 前方ベクトル: 0° = (0, 0, -1), 90°(右) = (1, 0, 0)
+            const fx = Math.sin(rad);
+            const fy = 0;
+            const fz = -Math.cos(rad);
+
+            if (listener.forwardX) {
+                const now = ctx.currentTime;
+                listener.positionX.setValueAtTime(0, now);
+                listener.positionY.setValueAtTime(0, now);
+                listener.positionZ.setValueAtTime(0, now);
+                listener.forwardX.setTargetAtTime(fx, now, 0.02);
+                listener.forwardY.setTargetAtTime(fy, now, 0.02);
+                listener.forwardZ.setTargetAtTime(fz, now, 0.02);
+                listener.upX.setValueAtTime(0, now);
+                listener.upY.setValueAtTime(1, now);
+                listener.upZ.setValueAtTime(0, now);
+            } else if (listener.setOrientation) {
+                listener.setPosition(0, 0, 0);
+                listener.setOrientation(fx, fy, fz, 0, 1, 0);
+            }
+        }
+
+        // --- 角度(0~360°)・距離(m)・高さ(m) から Web Audio 3D座標 (x, y, z) へ変換 ---
+        function polarTo3D(angleDeg, distanceMeters, elevationMeters) {
+            const rad = (angleDeg * Math.PI) / 180;
+            const x = distanceMeters * Math.sin(rad);
+            const z = -distanceMeters * Math.cos(rad);
+            const y = elevationMeters;
+            return { x, y, z };
+        }
+
+        // --- 角度の方位テキストを取得 ---
+        function getDirectionLabel(angleDeg) {
+            const a = ((angleDeg % 360) + 360) % 360;
+            if (a >= 337.5 || a < 22.5) return 'FRONT';
+            if (a >= 22.5 && a < 67.5) return 'FRONT-R';
+            if (a >= 67.5 && a < 112.5) return 'RIGHT';
+            if (a >= 112.5 && a < 157.5) return 'REAR-R';
+            if (a >= 157.5 && a < 202.5) return 'REAR';
+            if (a >= 202.5 && a < 247.5) return 'REAR-L';
+            if (a >= 247.5 && a < 292.5) return 'LEFT';
+            return 'FRONT-L';
+        }
+
+        // --- 内蔵サンプル音源ジェネレーター（MP3がなくても即遊べる6種の合成AudioBuffer） ---
+        function generatePresetAudioBuffer(ctx, presetType) {
+            const sr = ctx.sampleRate;
+
+            if (presetType === 'arp') {
+                // 1. シンセ・アルペジオ (BPM 120, 4秒ループ = 16ステップ)
+                const duration = 4.0;
+                const len = Math.floor(sr * duration);
+                const buffer = ctx.createBuffer(1, len, sr);
+                const data = buffer.getChannelData(0);
+
+                // Am9 -> Fmaj7 -> Dm9 -> E7sus4 の美しいアルペジオ周波数
+                const notes = [
+                    220.0, 261.63, 329.63, 493.88, 659.25, 493.88, 329.63, 261.63,
+                    174.61, 220.0, 261.63, 392.00, 523.25, 392.00, 329.63, 246.94
+                ];
+                const stepDuration = duration / notes.length;
+
+                for (let i = 0; i < len; i++) {
+                    const t = i / sr;
+                    const stepIndex = Math.floor(t / stepDuration) % notes.length;
+                    const localT = t - stepIndex * stepDuration;
+                    const freq = notes[stepIndex];
+
+                    const env = Math.exp(-localT * 9.5) * Math.min(1, localT * 180);
+                    // 倍音豊かなシンセプラック
+                    const wave =
+                        Math.sin(2 * Math.PI * freq * localT) * 0.55 +
+                        Math.sin(2 * Math.PI * freq * 2 * localT) * 0.25 * Math.exp(-localT * 14) +
+                        Math.sin(2 * Math.PI * freq * 3 * localT) * 0.12 * Math.exp(-localT * 20);
+                    data[i] = wave * env * 0.7;
+                }
+                // シンプルなピンポン風エコーを重ねる
+                const delaySamples = Math.floor(sr * 0.375);
+                for (let i = 0; i < len; i++) {
+                    const delayedIdx = (i - delaySamples + len) % len;
+                    data[i] = Math.tanh(data[i] + data[delayedIdx] * 0.32);
+                }
+                return { buffer, name: 'Synth Arpeggio' };
+            }
+
+            if (presetType === 'lofi') {
+                // 2. ローファイ・ドラムビート (BPM 120, 4秒ループ)
+                const duration = 4.0;
+                const len = Math.floor(sr * duration);
+                const buffer = ctx.createBuffer(1, len, sr);
+                const data = buffer.getChannelData(0);
+                const beatDur = 0.5; // 1拍 = 0.5s (8拍)
+
+                for (let i = 0; i < len; i++) {
+                    const t = i / sr;
+                    const beatIndex = Math.floor(t / beatDur);
+                    const beatT = t % beatDur;
+                    const sixteenthIndex = Math.floor(t / (beatDur / 2));
+                    const sixteenthT = t % (beatDur / 2);
+
+                    let sample = 0;
+
+                    // キック (偶数拍とシンコペーション)
+                    if (beatIndex % 2 === 0 || (beatIndex % 4 === 3 && beatT > 0.25)) {
+                        const kt = beatIndex % 2 === 0 ? beatT : beatT - 0.25;
+                        if (kt >= 0 && kt < 0.24) {
+                            const kFreq = 52 + 130 * Math.exp(-kt * 38);
+                            const kEnv = Math.exp(-kt * 13);
+                            sample += Math.sin(2 * Math.PI * kFreq * kt) * kEnv * 0.85;
+                        }
+                    }
+
+                    // スネア (奇数拍)
+                    if (beatIndex % 2 === 1 && beatT < 0.2) {
+                        const sEnv = Math.exp(-beatT * 22);
+                        const noise = (Math.random() * 2 - 1) * sEnv * 0.55;
+                        const body = Math.sin(2 * Math.PI * 185 * beatT) * Math.exp(-beatT * 32) * 0.4;
+                        sample += noise + body;
+                    }
+
+                    // ハイハット (8分音符刻み)
+                    if (sixteenthT < 0.07) {
+                        const hAmp = sixteenthIndex % 2 === 1 ? 0.28 : 0.16;
+                        const hEnv = Math.exp(-sixteenthT * 55);
+                        const metal = (Math.random() * 2 - 1) * Math.sin(2 * Math.PI * 6200 * sixteenthT);
+                        sample += metal * hEnv * hAmp;
+                    }
+
+                    // ローファイ・ウォームコードパッド
+                    const chordNotes = beatIndex < 4 ? [261.63, 311.13, 392.0, 466.16] : [233.08, 293.66, 349.23, 440.0];
+                    let pad = 0;
+                    for (const f of chordNotes) {
+                        pad += Math.sin(2 * Math.PI * f * t) * 0.06;
+                    }
+                    sample += pad;
+
+                    data[i] = Math.tanh(sample * 1.1) * 0.8;
+                }
+                return { buffer, name: 'Lo-Fi Beat Loop' };
+            }
+
+            if (presetType === 'chime') {
+                // 3. クリスタル・チャイム (倍音豊かなベル音・HRTF定位が抜群にわかりやすい)
+                const duration = 5.0;
+                const len = Math.floor(sr * duration);
+                const buffer = ctx.createBuffer(1, len, sr);
+                const data = buffer.getChannelData(0);
+
+                const bellEvents = [
+                    { time: 0.05, freq: 1046.5 },
+                    { time: 0.65, freq: 1318.5 },
+                    { time: 1.25, freq: 1567.98 },
+                    { time: 1.80, freq: 1975.5 },
+                    { time: 2.55, freq: 1174.66 },
+                    { time: 3.15, freq: 1567.98 },
+                    { time: 3.75, freq: 2093.0 },
+                    { time: 4.30, freq: 1318.5 }
+                ];
+
+                for (const ev of bellEvents) {
+                    const startSample = Math.floor(ev.time * sr);
+                    const bellLen = Math.floor(1.8 * sr);
+                    for (let j = 0; j < bellLen; j++) {
+                        const idx = (startSample + j) % len;
+                        const lt = j / sr;
+                        const env1 = Math.exp(-lt * 3.5);
+                        const env2 = Math.exp(-lt * 9.0);
+                        // FMベル倍音（非整数倍音を含むことでキラキラした金属ベルになる）
+                        const sig =
+                            Math.sin(2 * Math.PI * ev.freq * lt) * env1 * 0.4 +
+                            Math.sin(2 * Math.PI * ev.freq * 2.756 * lt) * env2 * 0.22 +
+                            Math.sin(2 * Math.PI * ev.freq * 5.404 * lt) * Math.exp(-lt * 16) * 0.12;
+                        data[idx] += sig;
+                    }
+                }
+                return { buffer, name: 'Crystal Chimes' };
+            }
+
+            if (presetType === 'rain') {
+                // 4. 雨と環境ノイズ (ピンクノイズ＋水滴レゾナンス)
+                const duration = 5.0;
+                const len = Math.floor(sr * duration);
+                const buffer = ctx.createBuffer(1, len, sr);
+                const data = buffer.getChannelData(0);
+
+                let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                for (let i = 0; i < len; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    const pink = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.03;
+                    b6 = white * 0.115926;
+
+                    // クロスフェード用に周期的な風うねりを加える
+                    const windMod = 0.75 + 0.25 * Math.sin((2 * Math.PI * i) / len);
+                    data[i] = pink * windMod;
+                }
+
+                // 水滴の粒音を追加
+                for (let d = 0; d < 45; d++) {
+                    const start = Math.floor(Math.random() * len);
+                    const dropFreq = 900 + Math.random() * 1600;
+                    const dropSamples = Math.floor(0.035 * sr);
+                    for (let j = 0; j < dropSamples; j++) {
+                        const idx = (start + j) % len;
+                        const lt = j / sr;
+                        const f = dropFreq * (1 + lt * 12);
+                        data[idx] += Math.sin(2 * Math.PI * f * lt) * Math.exp(-lt * 110) * 0.18;
+                    }
+                }
+                return { buffer, name: 'Rain & Wind' };
+            }
+
+            if (presetType === 'bass') {
+                // 5. ディープ・ベースパルス (BPM 120, 4秒ループ)
+                const duration = 4.0;
+                const len = Math.floor(sr * duration);
+                const buffer = ctx.createBuffer(1, len, sr);
+                const data = buffer.getChannelData(0);
+
+                const bassNotes = [
+                    55.0, 55.0, 110.0, 55.0, 65.41, 65.41, 98.0, 65.41,
+                    73.42, 73.42, 146.83, 73.42, 82.41, 82.41, 123.47, 98.0
+                ];
+                const stepDur = duration / bassNotes.length;
+
+                for (let i = 0; i < len; i++) {
+                    const t = i / sr;
+                    const step = Math.floor(t / stepDur) % bassNotes.length;
+                    const lt = t - step * stepDur;
+                    const f = bassNotes[step];
+
+                    const env = Math.exp(-lt * 8.5);
+                    // サブサイン＋倍音でヘッドホンでも定位がわかる重低音
+                    const sig =
+                        Math.sin(2 * Math.PI * f * lt) * 0.6 +
+                        Math.sin(2 * Math.PI * f * 2 * lt) * 0.3 * Math.exp(-lt * 12) +
+                        Math.sin(2 * Math.PI * f * 3 * lt) * 0.18 * Math.exp(-lt * 18) +
+                        Math.sin(2 * Math.PI * f * 4 * lt) * 0.1 * Math.exp(-lt * 25);
+                    data[i] = Math.tanh(sig * env * 1.4) * 0.75;
+                }
+                return { buffer, name: 'Deep Bass Pulse' };
+            }
+
+            // 6. 森のさえずり (FM Bird Chirps)
+            const duration = 5.0;
+            const len = Math.floor(sr * duration);
+            const buffer = ctx.createBuffer(1, len, sr);
+            const data = buffer.getChannelData(0);
+
+            const chirps = [
+                { time: 0.2, baseF: 2400, sweep: 900, dur: 0.14 },
+                { time: 0.42, baseF: 2600, sweep: 1100, dur: 0.16 },
+                { time: 0.68, baseF: 3100, sweep: -700, dur: 0.22 },
+                { time: 1.6, baseF: 1950, sweep: 600, dur: 0.18 },
+                { time: 1.85, baseF: 2200, sweep: 800, dur: 0.15 },
+                { time: 2.9, baseF: 2800, sweep: 1200, dur: 0.12 },
+                { time: 3.08, baseF: 2900, sweep: 1200, dur: 0.12 },
+                { time: 3.26, baseF: 3000, sweep: 1300, dur: 0.16 },
+                { time: 4.1, baseF: 2300, sweep: -500, dur: 0.25 }
+            ];
+
+            for (const c of chirps) {
+                const startSample = Math.floor(c.time * sr);
+                const cSamples = Math.floor(c.dur * sr);
+                let phase = 0;
+                for (let j = 0; j < cSamples; j++) {
+                    const idx = (startSample + j) % len;
+                    const lt = j / sr;
+                    const norm = lt / c.dur;
+                    const env = Math.sin(Math.PI * norm);
+                    const instFreq = c.baseF + c.sweep * Math.sin(norm * Math.PI * 1.5) + 180 * Math.sin(2 * Math.PI * 38 * lt);
+                    phase += (2 * Math.PI * instFreq) / sr;
+                    data[idx] += Math.sin(phase) * env * 0.45;
+                }
+            }
+            return { buffer, name: 'Forest Birds' };
+        }
+
+        // --- 音源クラス (SpatialSource) ---
+        class SpatialSource {
+            constructor({ name, audioBuffer, angle = 0, distance = 3.5, elevation = 0, colorObj, orbitEnabled = false, orbitSpeed = 25, orbitDir = 1 }) {
+                const ctx = ensureAudioContext();
+                this.id = 'src_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+                this.name = name;
+                this.audioBuffer = audioBuffer;
+                this.color = colorObj;
+
+                // 3D空間極座標
+                this.angle = ((angle % 360) + 360) % 360;
+                this.distance = Math.max(0.2, Math.min(appState.maxStageMeters, distance));
+                this.elevation = Math.max(-5.0, Math.min(5.0, elevation));
+
+                // 再生制御状態
+                this.isPlaying = false;
+                this.loop = true;
+                this.gainValue = 1.0;
+                this.muted = false;
+                this.solo = false;
+                this.offsetTime = 0;
+                this.startTime = 0;
+
+                // 自動周回 (Orbit) 設定
+                this.orbitEnabled = orbitEnabled;
+                this.orbitSpeed = orbitSpeed; // deg/s
+                this.orbitDir = orbitDir; // 1 = 時計回り(CW), -1 = 反時計回り(CCW)
+
+                // ビジュアル描画用キャッシュ
+                this.ripples = [];
+                this.trail = [];
+                this.lastRippleTime = 0;
+                this.currentLevel = 0;
+
+                // Web Audio ノードの構築
+                // SourceNode -> GainNode -> AnalyserNode -> PannerNode -> MasterGain (& Convolver)
+                this.gainNode = ctx.createGain();
+                this.analyser = ctx.createAnalyser();
+                this.analyser.fftSize = 128;
+                this.analyser.smoothingTimeConstant = 0.78;
+                this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+                this.timeData = new Uint8Array(this.analyser.fftSize);
+
+                this.panner = ctx.createPanner();
+                this.panner.panningModel = appState.panningModel;
+                this.panner.distanceModel = appState.distanceModel;
+                this.panner.refDistance = 1.0;
+                this.panner.maxDistance = 25.0;
+                this.panner.rolloffFactor = appState.rolloffFactor;
+                this.panner.coneInnerAngle = 360;
+                this.panner.coneOuterAngle = 360;
+                this.panner.coneOuterGain = 1.0;
+
+                this.gainNode.connect(this.analyser);
+                this.analyser.connect(this.panner);
+                this.panner.connect(appState.masterGain);
+                if (appState.convolverNode) {
+                    this.panner.connect(appState.convolverNode);
+                }
+
+                this.sourceNode = null;
+                this.updatePannerPosition(true);
+            }
+
+            // PannerNodeの3D座標を更新
+            updatePannerPosition(immediate = false) {
+                const ctx = appState.audioCtx;
+                if (!ctx) return;
+                const { x, y, z } = polarTo3D(this.angle, this.distance, this.elevation);
+                const now = ctx.currentTime;
+
+                if (this.panner.positionX) {
+                    if (immediate) {
+                        this.panner.positionX.setValueAtTime(x, now);
+                        this.panner.positionY.setValueAtTime(y, now);
+                        this.panner.positionZ.setValueAtTime(z, now);
+                    } else {
+                        // ドラッグ移動時のプチプチ音を防ぐため15msの時定数で滑らかに補間
+                        this.panner.positionX.setTargetAtTime(x, now, 0.015);
+                        this.panner.positionY.setTargetAtTime(y, now, 0.015);
+                        this.panner.positionZ.setTargetAtTime(z, now, 0.015);
+                    }
+                } else {
+                    this.panner.setPosition(x, y, z);
+                }
+            }
+
+            // 再生開始
+            play() {
+                if (this.isPlaying || !this.audioBuffer) return;
+                const ctx = ensureAudioContext();
+
+                const src = ctx.createBufferSource();
+                src.buffer = this.audioBuffer;
+                src.loop = this.loop;
+                src.connect(this.gainNode);
+
+                const offset = this.offsetTime % this.audioBuffer.duration;
+                src.start(0, offset);
+                this.startTime = ctx.currentTime - offset;
+                this.sourceNode = src;
+                this.isPlaying = true;
+
+                src.onended = () => {
+                    if (this.sourceNode === src && !this.loop) {
+                        this.isPlaying = false;
+                        this.offsetTime = 0;
+                        this.sourceNode = null;
+                        renderTrackList();
+                        updateInspectorUI();
+                    }
+                };
+            }
+
+            // 一時停止
+            pause() {
+                if (!this.isPlaying || !this.sourceNode) return;
+                const ctx = appState.audioCtx;
+                try {
+                    this.sourceNode.onended = null;
+                    this.sourceNode.stop();
+                    this.sourceNode.disconnect();
+                } catch (e) {}
+                this.offsetTime = (ctx.currentTime - this.startTime) % this.audioBuffer.duration;
+                this.sourceNode = null;
+                this.isPlaying = false;
+            }
+
+            // 破棄・クリーンアップ
+            dispose() {
+                this.pause();
+                try {
+                    this.gainNode.disconnect();
+                    this.analyser.disconnect();
+                    this.panner.disconnect();
+                } catch (e) {}
+            }
+
+            // リアルタイム音量・スペクトラムの取得
+            computeAudioMetrics(nowMs) {
+                if (!this.isPlaying) {
+                    this.currentLevel *= 0.85;
+                    return;
+                }
+                this.analyser.getByteFrequencyData(this.freqData);
+                this.analyser.getByteTimeDomainData(this.timeData);
+
+                // RMS振幅計算
+                let sumSq = 0;
+                for (let i = 0; i < this.timeData.length; i++) {
+                    const v = (this.timeData[i] - 128) / 128;
+                    sumSq += v * v;
+                }
+                const rms = Math.sqrt(sumSq / this.timeData.length);
+                this.currentLevel = Math.min(1.0, rms * 3.2);
+
+                // 音量が一定以上のとき波紋（リップル）を生成
+                if (appState.showRipples && this.currentLevel > 0.08 && nowMs - this.lastRippleTime > 170) {
+                    this.ripples.push({
+                        radius: 16,
+                        maxRadius: 42 + this.currentLevel * 75,
+                        alpha: Math.min(0.85, 0.35 + this.currentLevel * 0.7)
+                    });
+                    this.lastRippleTime = nowMs;
+                }
+            }
+        }
+
+        // --- 全音源のソロ / ミュートに応じた実効ゲインを更新 ---
+        function updateAllSourceGains() {
+            const ctx = appState.audioCtx;
+            if (!ctx) return;
+            const anySolo = appState.sources.some(s => s.solo);
+
+            appState.sources.forEach(s => {
+                let effectiveGain = s.gainValue;
+                if (s.muted) {
+                    effectiveGain = 0;
+                } else if (anySolo && !s.solo) {
+                    effectiveGain = 0;
+                }
+                s.gainNode.gain.setTargetAtTime(effectiveGain, ctx.currentTime, 0.015);
+            });
+        }
+
+        // --- 新しい音源を追加して即再生 ---
+        function addSpatialSource({ name, audioBuffer, angle, distance, elevation = 0, orbitEnabled = false, orbitSpeed = 25, orbitDir = 1 }) {
+            const colorObj = SOURCE_COLORS[appState.colorIndex % SOURCE_COLORS.length];
+            appState.colorIndex++;
+
+            // 角度や距離が未指定の場合は見やすい位置に自動配置
+            if (angle === undefined) {
+                angle = (appState.sources.length * 65 + 35) % 360;
+            }
+            if (distance === undefined) {
+                distance = 3.2 + (appState.sources.length % 3) * 1.4;
+            }
+
+            const source = new SpatialSource({
+                name,
+                audioBuffer,
+                angle,
+                distance,
+                elevation,
+                colorObj,
+                orbitEnabled,
+                orbitSpeed,
+                orbitDir
+            });
+
+            appState.sources.push(source);
+            appState.selectedSourceId = source.id;
+            updateAllSourceGains();
+            source.play();
+
+            renderTrackList();
+            updateInspectorUI();
+            return source;
+        }
+
+        // --- MP3 / 音声ファイルの読み込み処理（ドロップ座標対応） ---
+        async function handleAudioFiles(fileList, dropCoords = null) {
+            if (!fileList || fileList.length === 0) return;
+            const ctx = ensureAudioContext();
+
+            const files = Array.from(fileList).filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name));
+            if (files.length === 0) {
+                showToast('対応している音声ファイル（MP3 / WAV / OGG等）を選択してください', 'warn');
+                return;
+            }
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                try {
+                    const arrayBuf = await file.arrayBuffer();
+                    const audioBuffer = await ctx.decodeAudioData(arrayBuf);
+                    const cleanName = file.name.replace(/\.[^/.]+$/, '');
+
+                    // 複数ファイル同時ドロップ時は少しずつ角度をずらして重ならないようにする
+                    const angle = dropCoords
+                        ? (dropCoords.angle + i * 28) % 360
+                        : (appState.sources.length * 60 + 30) % 360;
+                    const distance = dropCoords
+                        ? dropCoords.distance
+                        : 3.8;
+
+                    addSpatialSource({
+                        name: cleanName,
+                        audioBuffer,
+                        angle,
+                        distance,
+                        elevation: 0,
+                        orbitEnabled: false
+                    });
+
+                    showToast(`「${cleanName}」を 角度 ${Math.round(angle)}° / 距離 ${distance.toFixed(1)}m に配置しました`, 'success');
+                } catch (err) {
+                    console.error('Audio decode error:', err);
+                    showToast(`「${file.name}」のデコードに失敗しました`, 'warn');
+                }
+            }
+        }
+
+        // --- 内蔵サンプル音源ボタンの追加処理 ---
+        function addPresetSample(presetKey, customOpts = {}) {
+            const ctx = ensureAudioContext();
+            const { buffer, name } = generatePresetAudioBuffer(ctx, presetKey);
+            return addSpatialSource({
+                name,
+                audioBuffer: buffer,
+                ...customOpts
+            });
+        }
+
+        // --- デモ空間プリセット一括配置 ---
+        function setupDemoSpace() {
+            ensureAudioContext();
+            // 既存の音源をクリア
+            appState.sources.forEach(s => s.dispose());
+            appState.sources = [];
+            appState.colorIndex = 0;
+
+            addPresetSample('lofi', {
+                angle: 0,
+                distance: 2.8,
+                elevation: 0,
+                orbitEnabled: false
+            });
+            addPresetSample('arp', {
+                angle: 75,
+                distance: 4.5,
+                elevation: 1.2,
+                orbitEnabled: true,
+                orbitSpeed: 22,
+                orbitDir: 1
+            });
+            addPresetSample('chime', {
+                angle: 280,
+                distance: 3.8,
+                elevation: 2.0,
+                orbitEnabled: true,
+                orbitSpeed: 32,
+                orbitDir: -1
+            });
+            addPresetSample('bass', {
+                angle: 180,
+                distance: 3.2,
+                elevation: -1.0,
+                orbitEnabled: false
+            });
+
+            showToast('3Dデモ空間を配置しました！ヘッドホンで音の移動を体感してください', 'success');
+        }
+
+        // --- 左カラム：音源トラック一覧のレンダリング ---
+        function renderTrackList() {
+            const container = document.getElementById('trackListContainer');
+            const badge = document.getElementById('sourceCountBadge');
+            badge.textContent = `${appState.sources.length} 音源`;
+
+            if (appState.sources.length === 0) {
+                container.innerHTML = `
+                    <div class="h-40 flex flex-col items-center justify-center text-center text-slate-400 text-xs px-4 border border-dashed border-slate-800 rounded-xl">
+                        <i class="fa-solid fa-compact-disc text-2xl text-slate-600 mb-2"></i>
+                        <p>配置されている音源がありません</p>
+                        <p class="text-[11px] text-slate-500 mt-1">上のサンプルボタンを押すか、MP3を円形ステージへドロップしてください</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            appState.sources.forEach(src => {
+                const isSelected = src.id === appState.selectedSourceId;
+                const item = document.createElement('div');
+                item.className = `p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                    isSelected
+                        ? 'bg-slate-800/95 border-sky-500/70 shadow-md'
+                        : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                }`;
+
+                const orbitActive = src.orbitEnabled || appState.globalOrbitForce;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                        <button class="track-play-btn w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 transition"
+                                style="background: rgba(${src.color.rgb}, 0.18); color: ${src.color.hex}; border: 1px solid rgba(${src.color.rgb}, 0.4);">
+                            <i class="fa-solid ${src.isPlaying ? 'fa-pause' : 'fa-play'}"></i>
+                        </button>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full shrink-0" style="background:${src.color.hex}"></span>
+                                <span class="text-xs font-semibold text-slate-100 truncate">${escapeHtml(src.name)}</span>
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-400 flex items-center gap-2 mt-0.5">
+                                <span data-track-pos="${src.id}">${Math.round(src.angle)}° / ${src.distance.toFixed(1)}m</span>
+                                ${orbitActive ? '<span class="text-amber-400"><i class="fa-solid fa-rotate fa-spin mr-0.5"></i>周回</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button class="track-orbit-btn px-1.5 py-1 rounded text-[10px] font-mono border transition ${
+                            src.orbitEnabled
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                        }" title="自動周回 ON/OFF">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                        <button class="track-mute-btn px-1.5 py-1 rounded text-[10px] font-mono font-bold border transition ${
+                            src.muted
+                                ? 'bg-rose-500/25 text-rose-300 border-rose-500/50'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                        }" title="ミュート">M</button>
+                        <button class="track-solo-btn px-1.5 py-1 rounded text-[10px] font-mono font-bold border transition ${
+                            src.solo
+                                ? 'bg-amber-500/25 text-amber-300 border-amber-500/50'
+                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                        }" title="ソロ再生">S</button>
+                        <button class="track-del-btn p-1 text-slate-500 hover:text-rose-400 text-xs transition" title="削除">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+
+                // 行クリックで選択
+                item.addEventListener('click', (e) => {
+                    if (e.target.closest('button')) return;
+                    appState.selectedSourceId = src.id;
+                    renderTrackList();
+                    updateInspectorUI();
+                });
+
+                // 再生/一時停止ボタン
+                item.querySelector('.track-play-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (src.isPlaying) src.pause();
+                    else src.play();
+                    appState.selectedSourceId = src.id;
+                    renderTrackList();
+                    updateInspectorUI();
+                });
+
+                // 周回トグル
+                item.querySelector('.track-orbit-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    src.orbitEnabled = !src.orbitEnabled;
+                    appState.selectedSourceId = src.id;
+                    renderTrackList();
+                    updateInspectorUI();
+                });
+
+                // ミュート
+                item.querySelector('.track-mute-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    src.muted = !src.muted;
+                    updateAllSourceGains();
+                    renderTrackList();
+                    updateInspectorUI();
+                });
+
+                // ソロ
+                item.querySelector('.track-solo-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    src.solo = !src.solo;
+                    updateAllSourceGains();
+                    renderTrackList();
+                    updateInspectorUI();
+                });
+
+                // 削除
+                item.querySelector('.track-del-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteSource(src.id);
+                });
+
+                container.appendChild(item);
+            });
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
+        // --- 音源の削除 ---
+        function deleteSource(sourceId) {
+            const idx = appState.sources.findIndex(s => s.id === sourceId);
+            if (idx === -1) return;
+            const target = appState.sources[idx];
+            target.dispose();
+            appState.sources.splice(idx, 1);
+
+            if (appState.selectedSourceId === sourceId) {
+                appState.selectedSourceId = appState.sources.length > 0 ? appState.sources[appState.sources.length - 1].id : null;
+            }
+            updateAllSourceGains();
+            renderTrackList();
+            updateInspectorUI();
+        }
+
+        // --- 右カラム：選択音源インスペクターUIの更新 ---
+        function updateInspectorUI() {
+            const emptyEl = document.getElementById('inspectorEmptyState');
+            const contentEl = document.getElementById('inspectorContent');
+            const badgeEl = document.getElementById('selectedBadge');
+
+            const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+            if (!src) {
+                emptyEl.classList.remove('hidden');
+                contentEl.classList.add('hidden');
+                badgeEl.textContent = '未選択';
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+            badgeEl.textContent = getDirectionLabel(src.angle);
+
+            document.getElementById('inspColorDot').style.backgroundColor = src.color.hex;
+            document.getElementById('inspSourceName').textContent = src.name;
+
+            // 再生ボタン表示
+            const playBtn = document.getElementById('inspBtnPlayPause');
+            if (src.isPlaying) {
+                playBtn.innerHTML = '<i class="fa-solid fa-pause"></i><span>一時停止</span>';
+                playBtn.className = 'col-span-2 py-1.5 px-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition';
+            } else {
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>再生する</span>';
+                playBtn.className = 'col-span-2 py-1.5 px-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition';
+            }
+
+            // Mute / Solo
+            const muteBtn = document.getElementById('inspBtnMute');
+            muteBtn.className = `py-1.5 px-2 rounded-lg text-xs font-mono font-semibold border transition ${
+                src.muted ? 'bg-rose-500/25 text-rose-300 border-rose-500/50' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`;
+
+            const soloBtn = document.getElementById('inspBtnSolo');
+            soloBtn.className = `py-1.5 px-2 rounded-lg text-xs font-mono font-semibold border transition ${
+                src.solo ? 'bg-amber-500/25 text-amber-300 border-amber-500/50' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`;
+
+            // Volume & Loop
+            document.getElementById('inspGainSlider').value = src.gainValue;
+            document.getElementById('inspGainValue').textContent = `${Math.round(src.gainValue * 100)}%`;
+
+            const loopBtn = document.getElementById('inspBtnLoop');
+            loopBtn.className = `px-2 py-1 rounded text-[10px] font-mono border transition ${
+                src.loop ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`;
+
+            // 座標スライダーと数値
+            updateInspectorCoordinateReadout(src);
+
+            // Orbit 設定
+            const orbitToggle = document.getElementById('inspBtnOrbitToggle');
+            if (src.orbitEnabled) {
+                orbitToggle.textContent = 'ON (回転中)';
+                orbitToggle.className = 'px-3 py-1 rounded-lg bg-amber-500/25 text-amber-300 border border-amber-500/50 text-xs font-semibold transition';
+            } else {
+                orbitToggle.textContent = 'OFF';
+                orbitToggle.className = 'px-3 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold transition';
+            }
+
+            const cwBtn = document.getElementById('inspBtnOrbitCW');
+            const ccwBtn = document.getElementById('inspBtnOrbitCCW');
+            if (src.orbitDir === 1) {
+                cwBtn.className = 'py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs flex items-center justify-center gap-1 transition';
+                ccwBtn.className = 'py-1 px-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs flex items-center justify-center gap-1 transition';
+            } else {
+                cwBtn.className = 'py-1 px-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-xs flex items-center justify-center gap-1 transition';
+                ccwBtn.className = 'py-1 px-2 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs flex items-center justify-center gap-1 transition';
+            }
+
+            document.getElementById('inspOrbitSpeedSlider').value = src.orbitSpeed;
+            document.getElementById('inspOrbitSpeedVal').textContent = `${src.orbitSpeed} deg/s`;
+        }
+
+        // 座標スライダー・数値のみの軽量更新（周回中やドラッグ中に毎フレーム呼ばれる）
+        function updateInspectorCoordinateReadout(src) {
+            if (!src || src.id !== appState.selectedSourceId) return;
+            const deg = Math.round(src.angle) % 360;
+            document.getElementById('inspAngleSlider').value = deg;
+            document.getElementById('inspAngleVal').textContent = `${deg}° (${getDirectionLabel(deg)})`;
+            document.getElementById('selectedBadge').textContent = getDirectionLabel(deg);
+
+            document.getElementById('inspDistSlider').value = src.distance.toFixed(1);
+            document.getElementById('inspDistVal').textContent = `${src.distance.toFixed(1)} m`;
+
+            document.getElementById('inspElevSlider').value = src.elevation.toFixed(1);
+            const sign = src.elevation > 0 ? '+' : '';
+            document.getElementById('inspElevVal').textContent = `${sign}${src.elevation.toFixed(1)} m`;
+
+            // 左リストの座標テキストも同期
+            const posSpan = document.querySelector(`[data-track-pos="${src.id}"]`);
+            if (posSpan) {
+                posSpan.textContent = `${deg}° / ${src.distance.toFixed(1)}m`;
+            }
+        }
+
+        // --- キャンバス座標と空間極座標（角度・距離）の相互変換 ---
+        const canvas = document.getElementById('spatialCanvas');
+        const ctx2d = canvas.getContext('2d');
+
+        function getStageGeometry() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const maxRadiusPx = Math.min(w, h) * 0.42;
+            return { w, h, cx, cy, maxRadiusPx };
+        }
+
+        // 極座標 (angleDeg, distanceMeters) -> キャンバス上のピクセル座標 (px, py)
+        function polarToCanvas(angleDeg, distanceMeters) {
+            const { cx, cy, maxRadiusPx } = getStageGeometry();
+            const rad = (angleDeg * Math.PI) / 180;
+            const rPx = (distanceMeters / appState.maxStageMeters) * maxRadiusPx;
+            return {
+                x: cx + rPx * Math.sin(rad),
+                y: cy - rPx * Math.cos(rad)
+            };
+        }
+
+        // キャンバス上のクライアント座標 (clientX, clientY) -> 極座標 (angleDeg, distanceMeters)
+        function clientToPolar(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const px = (clientX - rect.left) * scaleX;
+            const py = (clientY - rect.top) * scaleY;
+
+            const { cx, cy, maxRadiusPx } = getStageGeometry();
+            const dx = px - cx;
+            const dy = py - cy;
+
+            // FRONT(上) = 0°, RIGHT(右) = 90°, REAR(下) = 180°, LEFT(左) = 270°
+            let angleDeg = (Math.atan2(dx, -dy) * 180) / Math.PI;
+            angleDeg = ((angleDeg % 360) + 360) % 360;
+
+            const distPx = Math.hypot(dx, dy);
+            const distanceMeters = Math.max(0.2, Math.min(appState.maxStageMeters, (distPx / maxRadiusPx) * appState.maxStageMeters));
+
+            return { px, py, angle: angleDeg, distance: distanceMeters };
+        }
+
+        // --- キャンバスのリサイズ処理 (高DPI Retina対応) ---
+        function resizeCanvas() {
+            const wrapper = document.getElementById('canvasWrapper');
+            const rect = wrapper.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- メインキャンバス描画＆アニメーションループ ---
+        function renderStageLoop(nowMs) {
+            const dt = Math.min(0.1, (nowMs - appState.lastFrameTime) / 1000);
+            appState.lastFrameTime = nowMs;
+
+            const dpr = window.devicePixelRatio || 1;
+            const { w, h, cx, cy, maxRadiusPx } = getStageGeometry();
+
+            ctx2d.clearRect(0, 0, w, h);
+
+            // 1. レーダーグリッド・同心円・角度ラインの描画
+            drawRadarGrid(ctx2d, cx, cy, maxRadiusPx, dpr);
+
+            // 2. リスナーの前方視野コーンの描画
+            drawListenerFieldOfView(ctx2d, cx, cy, maxRadiusPx, dpr);
+
+            // 3. 各音源の自動周回(Orbit)計算・音響メトリクス更新・描画
+            appState.sources.forEach(src => {
+                const isOrbiting = (src.orbitEnabled || appState.globalOrbitForce) && appState.draggingSourceId !== src.id;
+                if (isOrbiting && src.isPlaying) {
+                    src.angle = (src.angle + src.orbitDir * src.orbitSpeed * dt + 360) % 360;
+                    src.updatePannerPosition(false);
+                    if (src.id === appState.selectedSourceId) {
+                        updateInspectorCoordinateReadout(src);
+                    }
+                }
+
+                src.computeAudioMetrics(nowMs);
+
+                const pos = polarToCanvas(src.angle, src.distance);
+                // 移動軌跡の記録
+                if (appState.showTrails && src.isPlaying) {
+                    src.trail.push({ x: pos.x, y: pos.y });
+                    if (src.trail.length > 28) src.trail.shift();
+                } else if (!appState.showTrails && src.trail.length > 0) {
+                    src.trail = [];
+                }
+
+                drawSourceNode(ctx2d, src, pos.x, pos.y, cx, cy, dpr);
+            });
+
+            // 4. 中央のリスナー（ヘッドホンアイコン＆向きインジケーター）の描画
+            drawCenterListener(ctx2d, cx, cy, dpr);
+
+            // 5. MP3ファイルドラッグ中のドロップ座標プレビュー描画
+            if (appState.fileDropPreview) {
+                drawFileDropPreview(ctx2d, appState.fileDropPreview, cx, cy, dpr);
+            }
+
+            requestAnimationFrame(renderStageLoop);
+        }
+
+        // レーダー同心円と方位目盛りの描画
+        function drawRadarGrid(ctx, cx, cy, maxRadiusPx, dpr) {
+            ctx.save();
+
+            // 同心円 (2m, 4m, 6m, 8m, 10m)
+            const rings = [2, 4, 6, 8, 10];
+            rings.forEach(meter => {
+                const r = (meter / appState.maxStageMeters) * maxRadiusPx;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.strokeStyle = meter === 10 ? 'rgba(56, 189, 248, 0.32)' : 'rgba(51, 65, 85, 0.55)';
+                ctx.lineWidth = (meter === 10 ? 1.8 : 1.0) * dpr;
+                ctx.stroke();
+
+                // 距離ラベル
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+                ctx.font = `${10 * dpr}px "JetBrains Mono", monospace`;
+                ctx.textAlign = 'left';
+                ctx.fillText(`${meter}m`, cx + 5 * dpr, cy - r + 12 * dpr);
+            });
+
+            // 30度ごとの放射線
+            for (let deg = 0; deg < 360; deg += 30) {
+                const rad = (deg * Math.PI) / 180;
+                const x2 = cx + maxRadiusPx * Math.sin(rad);
+                const y2 = cy - maxRadiusPx * Math.cos(rad);
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(x2, y2);
+                const isCardinal = deg % 90 === 0;
+                ctx.strokeStyle = isCardinal ? 'rgba(71, 85, 105, 0.7)' : 'rgba(30, 41, 59, 0.65)';
+                ctx.lineWidth = (isCardinal ? 1.3 : 1.0) * dpr;
+                ctx.stroke();
+            }
+
+            // 方位ラベル (FRONT 0°, RIGHT 90°, REAR 180°, LEFT 270°)
+            const cardinals = [
+                { deg: 0, text: 'FRONT 0°', color: '#38bdf8' },
+                { deg: 90, text: 'RIGHT 90°', color: '#94a3b8' },
+                { deg: 180, text: 'REAR 180°', color: '#94a3b8' },
+                { deg: 270, text: 'LEFT 270°', color: '#94a3b8' }
+            ];
+
+            ctx.font = `600 ${11 * dpr}px "JetBrains Mono", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            cardinals.forEach(c => {
+                const rad = (c.deg * Math.PI) / 180;
+                const labelRadius = maxRadiusPx + 22 * dpr;
+                const lx = cx + labelRadius * Math.sin(rad);
+                const ly = cy - labelRadius * Math.cos(rad);
+                ctx.fillStyle = c.color;
+                ctx.fillText(c.text, lx, ly);
+            });
+
+            ctx.restore();
+        }
+
+        // リスナーの前方視野コーン描画
+        function drawListenerFieldOfView(ctx, cx, cy, maxRadiusPx, dpr) {
+            ctx.save();
+            const yawRad = ((appState.listenerYaw - 90) * Math.PI) / 180;
+            const spread = (35 * Math.PI) / 180;
+
+            const grad = ctx.createRadialGradient(cx, cy, 10 * dpr, cx, cy, maxRadiusPx * 0.75);
+            grad.addColorStop(0, 'rgba(56, 189, 248, 0.16)');
+            grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, maxRadiusPx * 0.75, yawRad - spread, yawRad + spread);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 中央のリスナー（ヘッドホンアイコン）描画
+        function drawCenterListener(ctx, cx, cy, dpr) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate((appState.listenerYaw * Math.PI) / 180);
+
+            // 外周グローリング
+            ctx.beginPath();
+            ctx.arc(0, 0, 22 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            ctx.fill();
+            ctx.lineWidth = 2 * dpr;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.stroke();
+
+            // 前方ノーズポインター（向いている方向）
+            ctx.beginPath();
+            ctx.moveTo(0, -29 * dpr);
+            ctx.lineTo(-6 * dpr, -20 * dpr);
+            ctx.lineTo(6 * dpr, -20 * dpr);
+            ctx.closePath();
+            ctx.fillStyle = '#38bdf8';
+            ctx.fill();
+
+            // ヘッドホンバンド＆イヤーカップのベクター描画
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 2.4 * dpr;
+            ctx.beginPath();
+            ctx.arc(0, 1 * dpr, 10 * dpr, Math.PI, 0, false);
+            ctx.stroke();
+
+            // 左右イヤーパッド
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(-13 * dpr, -2 * dpr, 4.5 * dpr, 9 * dpr);
+            ctx.fillRect(8.5 * dpr, -2 * dpr, 4.5 * dpr, 9 * dpr);
+
+            // 頭部センタードット
+            ctx.beginPath();
+            ctx.arc(0, 2 * dpr, 4.5 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 各音源ノードと視覚エフェクト（波紋・スペクトラムリング・高さインジケーター）の描画
+        function drawSourceNode(ctx, src, x, y, cx, cy, dpr) {
+            ctx.save();
+            const isSelected = src.id === appState.selectedSourceId;
+            const isHovered = src.id === appState.hoverSourceId;
+            const level = src.currentLevel;
+
+            // 高さ(Elevation)に応じたY方向オフセット視覚表現
+            const elevOffsetPx = -src.elevation * 4.5 * dpr;
+            const nodeY = y + elevOffsetPx;
+
+            // 1. 軌跡（Trail）の描画
+            if (appState.showTrails && src.trail.length > 1) {
+                for (let i = 1; i < src.trail.length; i++) {
+                    const p0 = src.trail[i - 1];
+                    const p1 = src.trail[i];
+                    const alpha = (i / src.trail.length) * 0.45;
+                    ctx.beginPath();
+                    ctx.moveTo(p0.x, p0.y + elevOffsetPx);
+                    ctx.lineTo(p1.x, p1.y + elevOffsetPx);
+                    ctx.strokeStyle = `rgba(${src.color.rgb}, ${alpha})`;
+                    ctx.lineWidth = (i / src.trail.length) * 4 * dpr;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+            }
+
+            // 2. リスナーと音源を結ぶ音響接続ライン
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x, nodeY);
+            ctx.strokeStyle = `rgba(${src.color.rgb}, ${0.15 + level * 0.45})`;
+            ctx.lineWidth = (1.2 + level * 2.5) * dpr;
+            ctx.setLineDash([4 * dpr, 4 * dpr]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 高さが0以外のとき、基準平面(y)から浮き上がったノード(nodeY)への垂直支柱と影を描画
+            if (Math.abs(src.elevation) >= 0.2) {
+                ctx.beginPath();
+                ctx.arc(x, y, 5 * dpr, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+                ctx.fill();
+                ctx.strokeStyle = `rgba(${src.color.rgb}, 0.5)`;
+                ctx.lineWidth = 1 * dpr;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, nodeY);
+                ctx.strokeStyle = `rgba(${src.color.rgb}, 0.65)`;
+                ctx.lineWidth = 1.5 * dpr;
+                ctx.stroke();
+            }
+
+            // 3. 波紋（リップル）エフェクトの描画と更新
+            if (appState.showRipples) {
+                for (let i = src.ripples.length - 1; i >= 0; i--) {
+                    const rp = src.ripples[i];
+                    rp.radius += 1.4;
+                    rp.alpha *= 0.95;
+
+                    if (rp.alpha <= 0.02 || rp.radius >= rp.maxRadius) {
+                        src.ripples.splice(i, 1);
+                        continue;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(x, nodeY, rp.radius * dpr, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(${src.color.rgb}, ${rp.alpha})`;
+                    ctx.lineWidth = 1.8 * dpr;
+                    ctx.stroke();
+                }
+            }
+
+            // 4. 円形周波数スペクトラムリングの描画
+            if (appState.showSpectrum && src.isPlaying) {
+                const bins = 24;
+                const baseR = (20 + level * 8) * dpr;
+                for (let i = 0; i < bins; i++) {
+                    const val = src.freqData[i] / 255;
+                    const barLen = val * 22 * dpr;
+                    const ang = (i / bins) * Math.PI * 2;
+                    const x1 = x + Math.cos(ang) * baseR;
+                    const y1 = nodeY + Math.sin(ang) * baseR;
+                    const x2 = x + Math.cos(ang) * (baseR + barLen);
+                    const y2 = nodeY + Math.sin(ang) * (baseR + barLen);
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = `rgba(${src.color.rgb}, ${0.4 + val * 0.6})`;
+                    ctx.lineWidth = 2.2 * dpr;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+            }
+
+            // 5. 選択中レティクル（照準リング）
+            if (isSelected || isHovered) {
+                ctx.beginPath();
+                ctx.arc(x, nodeY, (24 + level * 6) * dpr, 0, Math.PI * 2);
+                ctx.strokeStyle = isSelected ? '#ffffff' : `rgba(${src.color.rgb}, 0.8)`;
+                ctx.lineWidth = (isSelected ? 2.0 : 1.2) * dpr;
+                ctx.setLineDash([5 * dpr, 3 * dpr]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // 6. 音源ノード本体サークル
+            const nodeRadius = (15 + level * 6) * dpr;
+            const glowGrad = ctx.createRadialGradient(x, nodeY, 2 * dpr, x, nodeY, nodeRadius * 1.6);
+            glowGrad.addColorStop(0, src.color.hex);
+            glowGrad.addColorStop(1, `rgba(${src.color.rgb}, 0)`);
+            ctx.beginPath();
+            ctx.arc(x, nodeY, nodeRadius * 1.6, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(x, nodeY, 14 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = src.muted ? '#334155' : src.color.hex;
+            ctx.fill();
+            ctx.lineWidth = 2 * dpr;
+            ctx.strokeStyle = '#0f172a';
+            ctx.stroke();
+
+            // ノード中央アイコン (音楽マーク or MUTE)
+            ctx.fillStyle = '#060913';
+            ctx.font = `bold ${11 * dpr}px "Inter", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(src.muted ? 'M' : (src.isPlaying ? '♪' : '❚❚'), x, nodeY + 0.5 * dpr);
+
+            // 7. 音源名＆距離・高さラベルバッジ
+            const labelY = nodeY + 26 * dpr;
+            ctx.font = `600 ${10.5 * dpr}px "Inter", sans-serif`;
+            const titleText = src.name.length > 14 ? src.name.substring(0, 13) + '…' : src.name;
+            ctx.fillStyle = '#f8fafc';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            ctx.shadowBlur = 4 * dpr;
+            ctx.fillText(titleText, x, labelY);
+
+            ctx.font = `${9.5 * dpr}px "JetBrains Mono", monospace`;
+            ctx.fillStyle = src.color.hex;
+            const elevTag = Math.abs(src.elevation) >= 0.1
+                ? ` / ${src.elevation > 0 ? '▲+' : '▼'}${src.elevation.toFixed(1)}m`
+                : '';
+            ctx.fillText(`${Math.round(src.angle)}° · ${src.distance.toFixed(1)}m${elevTag}`, x, labelY + 12 * dpr);
+
+            ctx.restore();
+        }
+
+        // ファイルドラッグ中のドロップ位置プレビュー描画
+        function drawFileDropPreview(ctx, preview, cx, cy, dpr) {
+            ctx.save();
+            const { px, py, angle, distance } = preview;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(px, py);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+            ctx.lineWidth = 2 * dpr;
+            ctx.setLineDash([6 * dpr, 4 * dpr]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.beginPath();
+            ctx.arc(px, py, 24 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2 * dpr;
+            ctx.stroke();
+
+            ctx.font = `600 ${11 * dpr}px "JetBrains Mono", monospace`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(`ここにドロップ (${Math.round(angle)}° / ${distance.toFixed(1)}m)`, px, py - 32 * dpr);
+            ctx.restore();
+        }
+
+        // --- キャンバス上のマウス＆タッチ操作（音源ドラッグ移動） ---
+        function findSourceAtPoint(px, py) {
+            const dpr = window.devicePixelRatio || 1;
+            const hitRadius = 22 * dpr;
+            // 上に重なっているもの（配列の後ろ）から優先して判定
+            for (let i = appState.sources.length - 1; i >= 0; i--) {
+                const src = appState.sources[i];
+                const pos = polarToCanvas(src.angle, src.distance);
+                const elevOffsetPx = -src.elevation * 4.5 * dpr;
+                const dist = Math.hypot(px - pos.x, py - (pos.y + elevOffsetPx));
+                if (dist <= hitRadius) {
+                    return src;
+                }
+            }
+            return null;
+        }
+
+        function onPointerDown(clientX, clientY) {
+            ensureAudioContext();
+            const { px, py } = clientToPolar(clientX, clientY);
+            const hitSource = findSourceAtPoint(px, py);
+
+            if (hitSource) {
+                appState.draggingSourceId = hitSource.id;
+                appState.selectedSourceId = hitSource.id;
+                renderTrackList();
+                updateInspectorUI();
+                return;
+            }
+
+            // 中央のリスナーをクリックしたか判定
+            const { cx, cy } = getStageGeometry();
+            const dpr = window.devicePixelRatio || 1;
+            if (Math.hypot(px - cx, py - cy) <= 25 * dpr) {
+                appState.draggingListener = true;
+            }
+        }
+
+        function onPointerMove(clientX, clientY) {
+            const { px, py, angle, distance } = clientToPolar(clientX, clientY);
+
+            if (appState.draggingSourceId) {
+                const src = appState.sources.find(s => s.id === appState.draggingSourceId);
+                if (src) {
+                    src.angle = angle;
+                    src.distance = distance;
+                    src.updatePannerPosition(false);
+                    updateInspectorCoordinateReadout(src);
+                }
+                return;
+            }
+
+            if (appState.draggingListener) {
+                appState.listenerYaw = Math.round(angle) % 360;
+                document.getElementById('listenerYawSlider').value = appState.listenerYaw;
+                document.getElementById('listenerYawValue').textContent = `${appState.listenerYaw}°`;
+                updateListenerOrientation();
+                return;
+            }
+
+            // ホバー判定
+            const hoverSrc = findSourceAtPoint(px, py);
+            appState.hoverSourceId = hoverSrc ? hoverSrc.id : null;
+            canvas.style.cursor = hoverSrc ? 'pointer' : 'grab';
+        }
+
+        function onPointerUp() {
+            appState.draggingSourceId = null;
+            appState.draggingListener = false;
+        }
+
+        // マウスイベント
+        canvas.addEventListener('mousedown', e => onPointerDown(e.clientX, e.clientY));
+        window.addEventListener('mousemove', e => onPointerMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', onPointerUp);
+
+        // ホイール操作で選択中・ホバー中の音源の高さ（Elevation）を直感的に変更
+        canvas.addEventListener('wheel', e => {
+            const targetId = appState.hoverSourceId || appState.selectedSourceId;
+            if (!targetId) return;
+            const src = appState.sources.find(s => s.id === targetId);
+            if (!src) return;
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.2 : -0.2;
+            src.elevation = Math.max(-5.0, Math.min(5.0, Math.round((src.elevation + delta) * 10) / 10));
+            src.updatePannerPosition(false);
+            updateInspectorCoordinateReadout(src);
+        }, { passive: false });
+
+        // タッチイベント対応
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length > 0) {
+                const t = e.touches[0];
+                onPointerDown(t.clientX, t.clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length > 0 && (appState.draggingSourceId || appState.draggingListener)) {
+                e.preventDefault();
+                const t = e.touches[0];
+                onPointerMove(t.clientX, t.clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', onPointerUp);
+
+        // --- 円形キャンバスへの直接MP3ドラッグ＆ドロップ配置 ---
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const dropOverlay = document.getElementById('canvasDropOverlay');
+
+        canvasWrapper.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropOverlay.classList.remove('opacity-0');
+            appState.fileDropPreview = clientToPolar(e.clientX, e.clientY);
+        });
+
+        canvasWrapper.addEventListener('dragleave', e => {
+            e.preventDefault();
+            dropOverlay.classList.add('opacity-0');
+            appState.fileDropPreview = null;
+        });
+
+        canvasWrapper.addEventListener('drop', e => {
+            e.preventDefault();
+            dropOverlay.classList.add('opacity-0');
+            const coords = clientToPolar(e.clientX, e.clientY);
+            appState.fileDropPreview = null;
+
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                handleAudioFiles(e.dataTransfer.files, coords);
+            }
+        });
+
+        // サイドバーのドロップゾーン＆ファイル選択ボタン
+        const sidebarDropZone = document.getElementById('sidebarDropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        sidebarDropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            sidebarDropZone.classList.add('border-sky-400', 'bg-sky-950/30');
+        });
+        sidebarDropZone.addEventListener('dragleave', e => {
+            e.preventDefault();
+            sidebarDropZone.classList.remove('border-sky-400', 'bg-sky-950/30');
+        });
+        sidebarDropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            sidebarDropZone.classList.remove('border-sky-400', 'bg-sky-950/30');
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                handleAudioFiles(e.dataTransfer.files, null);
+            }
+        });
+
+        fileInput.addEventListener('change', e => {
+            if (e.target.files.length > 0) {
+                handleAudioFiles(e.target.files, null);
+                fileInput.value = '';
+            }
+        });
+
+        // --- UIボタン＆スライダーのイベントバインディング ---
+        function bindUIEvents() {
+            // サンプル音源追加ボタン
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const key = btn.getAttribute('data-preset');
+                    const src = addPresetSample(key);
+                    showToast(`サンプル「${src.name}」を追加しました`, 'info');
+                });
+            });
+
+            // デモ空間配置ボタン
+            document.getElementById('btnDemoSetup').addEventListener('click', setupDemoSpace);
+
+            // 一括再生 / 一括一時停止
+            document.getElementById('btnPlayAll').addEventListener('click', () => {
+                ensureAudioContext();
+                if (appState.sources.length === 0) {
+                    setupDemoSpace();
+                    return;
+                }
+                appState.sources.forEach(s => s.play());
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('btnPauseAll').addEventListener('click', () => {
+                appState.sources.forEach(s => s.pause());
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            // 全体自動周回トグル
+            document.getElementById('btnGlobalOrbit').addEventListener('click', () => {
+                appState.globalOrbitForce = !appState.globalOrbitForce;
+                const label = document.getElementById('globalOrbitStateText');
+                const btn = document.getElementById('btnGlobalOrbit');
+                if (appState.globalOrbitForce) {
+                    label.textContent = '全員ON';
+                    label.className = 'text-amber-300';
+                    btn.classList.add('border-amber-500/50', 'bg-amber-500/10');
+                } else {
+                    label.textContent = '個別';
+                    label.className = 'text-slate-400';
+                    btn.classList.remove('border-amber-500/50', 'bg-amber-500/10');
+                }
+                renderTrackList();
+            });
+
+            // マスターボリューム＆ミュート
+            const masterVolSlider = document.getElementById('masterVolumeSlider');
+            const masterVolVal = document.getElementById('masterVolumeValue');
+            const masterVolIcon = document.getElementById('masterVolIcon');
+
+            masterVolSlider.addEventListener('input', e => {
+                appState.masterVolume = parseFloat(e.target.value);
+                appState.isMasterMuted = false;
+                masterVolVal.textContent = `${Math.round(appState.masterVolume * 100)}%`;
+                if (appState.masterGain && appState.audioCtx) {
+                    appState.masterGain.gain.setTargetAtTime(appState.masterVolume, appState.audioCtx.currentTime, 0.015);
+                }
+                masterVolIcon.className = appState.masterVolume === 0
+                    ? 'fa-solid fa-volume-xmark text-rose-400 text-xs w-4 text-center cursor-pointer'
+                    : 'fa-solid fa-volume-high text-sky-400 text-xs w-4 text-center cursor-pointer';
+            });
+
+            masterVolIcon.addEventListener('click', () => {
+                appState.isMasterMuted = !appState.isMasterMuted;
+                if (appState.masterGain && appState.audioCtx) {
+                    const target = appState.isMasterMuted ? 0 : appState.masterVolume;
+                    appState.masterGain.gain.setTargetAtTime(target, appState.audioCtx.currentTime, 0.015);
+                }
+                masterVolIcon.className = appState.isMasterMuted
+                    ? 'fa-solid fa-volume-xmark text-rose-400 text-xs w-4 text-center cursor-pointer'
+                    : 'fa-solid fa-volume-high text-sky-400 text-xs w-4 text-center cursor-pointer';
+            });
+
+            // 全クリア
+            document.getElementById('btnClearAll').addEventListener('click', () => {
+                if (appState.sources.length === 0) return;
+                appState.sources.forEach(s => s.dispose());
+                appState.sources = [];
+                appState.selectedSourceId = null;
+                renderTrackList();
+                updateInspectorUI();
+                showToast('すべての音源をクリアしました', 'info');
+            });
+
+            // リスナー向きスライダー
+            const yawSlider = document.getElementById('listenerYawSlider');
+            const yawVal = document.getElementById('listenerYawValue');
+            yawSlider.addEventListener('input', e => {
+                appState.listenerYaw = parseInt(e.target.value, 10);
+                yawVal.textContent = `${appState.listenerYaw}°`;
+                updateListenerOrientation();
+            });
+            document.getElementById('btnResetListener').addEventListener('click', () => {
+                appState.listenerYaw = 0;
+                yawSlider.value = 0;
+                yawVal.textContent = '0°';
+                updateListenerOrientation();
+            });
+
+            // エフェクト表示切替ボタン
+            const btnRipples = document.getElementById('btnToggleRipples');
+            btnRipples.addEventListener('click', () => {
+                appState.showRipples = !appState.showRipples;
+                btnRipples.className = appState.showRipples
+                    ? 'px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-medium transition'
+                    : 'px-2.5 py-1 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[11px] font-medium transition';
+            });
+
+            const btnSpectrum = document.getElementById('btnToggleSpectrum');
+            btnSpectrum.addEventListener('click', () => {
+                appState.showSpectrum = !appState.showSpectrum;
+                btnSpectrum.className = appState.showSpectrum
+                    ? 'px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-medium transition'
+                    : 'px-2.5 py-1 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[11px] font-medium transition';
+            });
+
+            const btnTrails = document.getElementById('btnToggleTrails');
+            btnTrails.addEventListener('click', () => {
+                appState.showTrails = !appState.showTrails;
+                btnTrails.className = appState.showTrails
+                    ? 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-medium transition'
+                    : 'px-2.5 py-1 rounded-lg bg-slate-900 text-slate-500 border border-slate-800 text-[11px] font-medium transition';
+            });
+
+            // --- 右カラム：選択音源インスペクター内の操作 ---
+            document.getElementById('inspBtnDelete').addEventListener('click', () => {
+                if (appState.selectedSourceId) deleteSource(appState.selectedSourceId);
+            });
+
+            document.getElementById('inspBtnPlayPause').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                if (src.isPlaying) src.pause();
+                else src.play();
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspBtnMute').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.muted = !src.muted;
+                updateAllSourceGains();
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspBtnSolo').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.solo = !src.solo;
+                updateAllSourceGains();
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspGainSlider').addEventListener('input', e => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.gainValue = parseFloat(e.target.value);
+                document.getElementById('inspGainValue').textContent = `${Math.round(src.gainValue * 100)}%`;
+                updateAllSourceGains();
+            });
+
+            document.getElementById('inspBtnLoop').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.loop = !src.loop;
+                if (src.sourceNode) src.sourceNode.loop = src.loop;
+                updateInspectorUI();
+            });
+
+            // 方位ワンタッチボタン (前 0°, 右 90°, 後 180°, 左 270°)
+            document.querySelectorAll('.quick-angle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                    if (!src) return;
+                    src.angle = parseInt(btn.getAttribute('data-dir'), 10);
+                    src.updatePannerPosition(false);
+                    updateInspectorCoordinateReadout(src);
+                });
+            });
+
+            // 角度・距離・高さスライダー
+            document.getElementById('inspAngleSlider').addEventListener('input', e => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.angle = parseFloat(e.target.value);
+                src.updatePannerPosition(false);
+                updateInspectorCoordinateReadout(src);
+            });
+
+            document.getElementById('inspDistSlider').addEventListener('input', e => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.distance = parseFloat(e.target.value);
+                src.updatePannerPosition(false);
+                updateInspectorCoordinateReadout(src);
+            });
+
+            document.getElementById('inspElevSlider').addEventListener('input', e => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.elevation = parseFloat(e.target.value);
+                src.updatePannerPosition(false);
+                updateInspectorCoordinateReadout(src);
+            });
+
+            document.getElementById('inspBtnResetElev').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.elevation = 0;
+                src.updatePannerPosition(false);
+                updateInspectorCoordinateReadout(src);
+            });
+
+            // Orbit 設定
+            document.getElementById('inspBtnOrbitToggle').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.orbitEnabled = !src.orbitEnabled;
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspBtnOrbitCW').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.orbitDir = 1;
+                src.orbitEnabled = true;
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspBtnOrbitCCW').addEventListener('click', () => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.orbitDir = -1;
+                src.orbitEnabled = true;
+                renderTrackList();
+                updateInspectorUI();
+            });
+
+            document.getElementById('inspOrbitSpeedSlider').addEventListener('input', e => {
+                const src = appState.sources.find(s => s.id === appState.selectedSourceId);
+                if (!src) return;
+                src.orbitSpeed = parseInt(e.target.value, 10);
+                document.getElementById('inspOrbitSpeedVal').textContent = `${src.orbitSpeed} deg/s`;
+            });
+
+            // --- 空間オーディオ環境設定 (HRTF / EqualPower / Rolloff / Reverb) ---
+            const btnHRTF = document.getElementById('btnModelHRTF');
+            const btnEqual = document.getElementById('btnModelEqual');
+            const stageModeLabel = document.getElementById('stageModeLabel');
+
+            function setPanningModel(model) {
+                appState.panningModel = model;
+                appState.sources.forEach(s => {
+                    s.panner.panningModel = model;
+                });
+                if (model === 'HRTF') {
+                    btnHRTF.className = 'py-2 px-2.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/50 text-xs font-semibold flex flex-col items-center transition';
+                    btnEqual.className = 'py-2 px-2.5 rounded-xl bg-slate-900 text-slate-400 border border-slate-800 text-xs font-semibold flex flex-col items-center transition';
+                    stageModeLabel.textContent = 'HRTF 3D空間ステージ (半径 10m)';
+                } else {
+                    btnEqual.className = 'py-2 px-2.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/50 text-xs font-semibold flex flex-col items-center transition';
+                    btnHRTF.className = 'py-2 px-2.5 rounded-xl bg-slate-900 text-slate-400 border border-slate-800 text-xs font-semibold flex flex-col items-center transition';
+                    stageModeLabel.textContent = 'EqualPower ステレオステージ (半径 10m)';
+                }
+            }
+
+            btnHRTF.addEventListener('click', () => setPanningModel('HRTF'));
+            btnEqual.addEventListener('click', () => setPanningModel('equalpower'));
+
+            document.getElementById('distanceModelSelect').addEventListener('change', e => {
+                appState.distanceModel = e.target.value;
+                appState.sources.forEach(s => {
+                    s.panner.distanceModel = appState.distanceModel;
+                });
+            });
+
+            document.getElementById('rolloffSlider').addEventListener('input', e => {
+                appState.rolloffFactor = parseFloat(e.target.value);
+                document.getElementById('rolloffValue').textContent = appState.rolloffFactor.toFixed(1);
+                appState.sources.forEach(s => {
+                    s.panner.rolloffFactor = appState.rolloffFactor;
+                });
+            });
+
+            document.getElementById('reverbWetSlider').addEventListener('input', e => {
+                appState.reverbWet = parseFloat(e.target.value);
+                document.getElementById('reverbWetValue').textContent = `${Math.round(appState.reverbWet * 100)}%`;
+                if (appState.reverbWetGain && appState.audioCtx) {
+                    appState.reverbWetGain.gain.setTargetAtTime(appState.reverbWet, appState.audioCtx.currentTime, 0.02);
+                }
+            });
+        }
+
+        // --- アプリケーション起動時の初期化 ---
+        window.onload = function () {
+            resizeCanvas();
+            bindUIEvents();
+            renderTrackList();
+            updateInspectorUI();
+            requestAnimationFrame(renderStageLoop);
+        };
+    </script>
+</body>
+</html>
